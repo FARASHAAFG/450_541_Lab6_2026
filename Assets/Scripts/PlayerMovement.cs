@@ -10,6 +10,8 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float turnSpeed = 150f;    // degrees per second
     [SerializeField] private float jumpForce = 5f;      // strength of the jump
 
+    [SerializeField] private float doubleJumpForce = 4f;
+
     [Header("Ground Check Settings")]
     [SerializeField] private float groundDistance = 0.5f; // ray length
     [SerializeField] private LayerMask groundMask;        // ground layers
@@ -19,6 +21,10 @@ public class PlayerMovement : MonoBehaviour
     private float turnInput;            // horizontal input for rotation
     private bool isGrounded;            // true when standing on the ground
     private bool jumpRequested = false; // set in Update(), used later
+
+    private bool doubleJumpRequested = false; // set in TryDoubleJump()
+    private bool hasDoubleJumped = false;     // one per jump
+
 
     public bool IsGrounded => isGrounded;
 
@@ -32,6 +38,13 @@ public class PlayerMovement : MonoBehaviour
     {
         // 1. Ground Check
         isGrounded = Physics.Raycast(transform.position + transform.up*groundDistance/2, -transform.up, groundDistance, groundMask);
+
+        // Back on the ground: the double jump is available again
+        if (isGrounded)
+        {
+            hasDoubleJumped = false;
+        }
+
 
         // 2. Read Inputs
         turnInput = Input.GetAxisRaw("Horizontal"); // A/D or Left/Right turn input
@@ -50,7 +63,34 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+
     private void FixedUpdate()
+    {
+        MovePlayer();
+
+        if (jumpRequested)
+        {
+            Jump(jumpForce);
+            jumpRequested = false;
+        }
+
+        // NEW: the second jump, in mid-air
+        if (doubleJumpRequested)
+        {
+            Jump(doubleJumpForce);
+            doubleJumpRequested = false;
+        }
+    }
+
+    private void Jump(float force)
+    {
+        rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f,
+                                        rb.linearVelocity.z);
+        rb.AddForce(Vector3.up * force, ForceMode.VelocityChange);
+    }
+
+
+    /*private void FixedUpdate()
     {
         MovePlayer();
 
@@ -59,7 +99,7 @@ public class PlayerMovement : MonoBehaviour
             Jump();
             jumpRequested = false;
         }
-    }
+    }*/
 
     private void MovePlayer()
     {
@@ -69,10 +109,23 @@ public class PlayerMovement : MonoBehaviour
         // Apply movement while preserving vertical velocity (gravity/jumping)
         rb.linearVelocity = new Vector3(targetVelocity.x, rb.linearVelocity.y, targetVelocity.z);
     }
-
+    /*
     private void Jump()
     {
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
+    }*/
+
+    // Tries to jump a second time in mid-air.
+    // Returns true if the double jump really happened.
+    public bool TryDoubleJump()
+    {
+        // Not allowed on the ground, or if it was already used
+        if (isGrounded || hasDoubleJumped) return false;
+
+        doubleJumpRequested = true;
+        hasDoubleJumped = true;
+        return true;
     }
+
 }
